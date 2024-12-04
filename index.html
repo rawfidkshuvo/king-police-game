@@ -22,7 +22,7 @@
         <button id="guessButton" style="display: none;">Make Guess</button>
     </div>
     <script>
-        const socket = io();
+        const socket = io("https://king-police-backend.onrender.com");
 
         document.getElementById("createRoom").onclick = () => {
             const roomCode = document.getElementById("roomCode").value;

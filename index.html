@@ -1,98 +1,83 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multiplayer Game</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-        }
-        .game-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-top: 50px;
-        }
-        .button {
-            padding: 10px 20px;
-            margin: 10px;
-            font-size: 16px;
-            cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-        }
-    </style>
+    <title>King-Police-Robber-Thief Game</title>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
 </head>
 <body>
+    <h1>King-Police-Robber-Thief</h1>
+    <div id="menu">
+        <input type="text" id="roomCode" placeholder="Room Code" />
+        <input type="text" id="username" placeholder="Username" />
+        <button id="createRoom">Create Room</button>
+        <button id="joinRoom">Join Room</button>
+    </div>
+    <div id="game" style="display: none;">
+        <h2>Players</h2>
+        <ul id="players"></ul>
+        <h2>Scores</h2>
+        <ul id="scores"></ul>
+        <h2>Roles</h2>
+        <ul id="roles"></ul>
+        <button id="guessButton" style="display: none;">Make Guess</button>
+    </div>
+    <script>
+        const socket = io();
 
-<div class="game-container">
-    <h1>Welcome to the Multiplayer Game</h1>
-    <div id="status"></div>
-    <input type="text" id="username" placeholder="Enter your username" />
-    <input type="text" id="room_code" placeholder="Enter Room Code" />
-    <button class="button" id="join_button">Join Room</button>
-    <button class="button" id="start_button" disabled>Start Game</button>
-    <div id="players_list"></div>
-</div>
+        document.getElementById("createRoom").onclick = () => {
+            const roomCode = document.getElementById("roomCode").value;
+            socket.emit("create_room", { room_code: roomCode });
+        };
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
-<script>
-    const socket = io(); // Connect to the Socket.IO server
+        document.getElementById("joinRoom").onclick = () => {
+            const roomCode = document.getElementById("roomCode").value;
+            const username = document.getElementById("username").value;
+            socket.emit("join_room", { room_code: roomCode, username: username });
+        };
 
-    const joinButton = document.getElementById("join_button");
-    const startButton = document.getElementById("start_button");
-    const usernameInput = document.getElementById("username");
-    const roomCodeInput = document.getElementById("room_code");
-    const playersList = document.getElementById("players_list");
-    const statusDiv = document.getElementById("status");
+        socket.on("room_created", (data) => {
+            alert(`Room ${data.room_code} created! Share with friends.`);
+        });
 
-    let roomCode = "";
-    let username = "";
+        socket.on("player_joined", (data) => {
+            const playerList = document.getElementById("players");
+            playerList.innerHTML = "";
+            data.players.forEach((player) => {
+                const li = document.createElement("li");
+                li.textContent = player;
+                playerList.appendChild(li);
+            });
+            document.getElementById("menu").style.display = "none";
+            document.getElementById("game").style.display = "block";
+        });
 
-    // Emit event to join the room
-    joinButton.addEventListener("click", () => {
-        username = usernameInput.value.trim();
-        roomCode = roomCodeInput.value.trim();
+        socket.on("new_turn", (data) => {
+            const roles = data.roles;
+            const roleList = document.getElementById("roles");
+            roleList.innerHTML = "";
+            Object.entries(roles).forEach(([player, role]) => {
+                const li = document.createElement("li");
+                li.textContent = `${player}: ${role}`;
+                roleList.appendChild(li);
+            });
+        });
 
-        if (username && roomCode) {
-            socket.emit("join_room", { username, room_code: roomCode });
-        } else {
-            alert("Please enter a username and room code.");
-        }
-    });
+        socket.on("update_scores", (data) => {
+            const scores = data.scores;
+            const scoreList = document.getElementById("scores");
+            scoreList.innerHTML = "";
+            Object.entries(scores).forEach(([player, score]) => {
+                const li = document.createElement("li");
+                li.textContent = `${player}: ${score}`;
+                scoreList.appendChild(li);
+            });
+        });
 
-    // Emit event to start the game
-    startButton.addEventListener("click", () => {
-        socket.emit("start_game", { room_code: roomCode });
-    });
-
-    // Listen for player joining
-    socket.on("player_joined", (data) => {
-        console.log(data);
-        const { players } = data;
-        playersList.innerHTML = "Players in the room: " + players.join(", ");
-        statusDiv.innerHTML = "Waiting for other players...";
-        if (players.length === 4) {
-            startButton.disabled = false;
-            statusDiv.innerHTML = "All players joined. Ready to start!";
-        }
-    });
-
-    // Listen for start game
-    socket.on("new_turn", (data) => {
-        console.log("New turn started: ", data);
-        // Handle the turn and display the roles
-        alert("New turn started! Roles are assigned.");
-    });
-
-    // Listen for errors (e.g., not enough players)
-    socket.on("error", (data) => {
-        alert(data.message);
-    });
-</script>
-
+        socket.on("game_over", (data) => {
+            alert(`Game Over! Winner: ${data.winner}`);
+            document.getElementById("game").style.display = "none";
+            document.getElementById("menu").style.display = "block";
+        });
+    </script>
 </body>
 </html>

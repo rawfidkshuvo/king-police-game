@@ -49,9 +49,9 @@
     </div>
 
     <div id="game" style="display: none;">
-        <h2>Players</h2>
+        <h2>Players Role in this turn</h2>
         <ul id="players"></ul>
-        <h2>Scores</h2>
+        <h2>Current Scores</h2>
         <ul id="scores"></ul>
         <h3 id="roleLabel"></h3>
     </div>
@@ -123,17 +123,17 @@
             Object.entries(roles).forEach(([player, role]) => {
                 const li = document.createElement("li");
                 // Display all players' names
-                if (role === "King") {
-                    li.textContent = `${player}: ${role}`;  // Show King's name and role
-                } else {
-                    li.textContent = `${player}: Hidden Role`;  // Hide other roles
-                }
+                if (role === "King" || role === "Police") {
+                    li.textContent = `${role}: ${player}`;  // Show King's name and role
+                } 
                 playersList.appendChild(li);
             });
 
             // Hide guess section for everyone except the Police
             const username = document.getElementById("username").value;
-            document.getElementById("roleLabel").textContent = `Your Role: ${roles[username]}`; // Optionally display only for the user
+            document.getElementById("roleLabel").textContent = `Your Role: ${roles[username]}`;
+            document.getElementById("roleLabel").style.color = "red";  // Set the text color to red
+ // Optionally display only for the user
             document.getElementById("guess").style.display = "none"; // Hide guess section by default
 
             if (roles[username] === "Police") {
@@ -142,21 +142,38 @@
 
                 // Enable dropdown and populate it with Robber and Thief names
                 const robber = getPlayerByRole(roles, "Robber");
-                const thief = getPlayerByRole(roles, "Thief");
+const thief = getPlayerByRole(roles, "Thief");
 
-                const selectElement = document.getElementById("robberGuess");
-                selectElement.disabled = false;
-                selectElement.innerHTML = "";  // Clear any previous options
+const selectElement = document.getElementById("robberGuess");
+selectElement.disabled = false;
+selectElement.innerHTML = "";  // Clear any previous options
 
-                const optionRobber = document.createElement("option");
-                optionRobber.value = robber;
-                optionRobber.textContent = robber;  // Option for the Robber
-                selectElement.appendChild(optionRobber);
+// Create the options for Robber and Thief
+const optionRobber = document.createElement("option");
+optionRobber.value = robber;
+optionRobber.textContent = robber;  // Option for the Robber
 
-                const optionThief = document.createElement("option");
-                optionThief.value = thief;
-                optionThief.textContent = thief;  // Option for the Thief
-                selectElement.appendChild(optionThief);
+const optionThief = document.createElement("option");
+optionThief.value = thief;
+optionThief.textContent = thief;  // Option for the Thief
+
+// Store options in an array and shuffle them
+const options = [optionRobber, optionThief];
+shuffle(options);  // Shuffle the array to randomize order
+
+// Append shuffled options to the select element
+options.forEach(option => {
+    selectElement.appendChild(option);
+});
+
+// Helper function to shuffle an array
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
             }
 
             // Reset guesses and button

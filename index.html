@@ -3,6 +3,41 @@
 <head>
     <title>King-Police-Robber-Thief Game</title>
     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #menu, #game, #gameOver {
+            margin-top: 20px;
+        }
+
+        input, button {
+            padding: 10px;
+            margin: 5px;
+            font-size: 16px;
+        }
+
+        ul {
+            list-style-type: none;
+        }
+
+        h1 {
+            color: #4CAF50;
+        }
+
+        #roles li {
+            margin-bottom: 10px;
+        }
+
+        select {
+            padding: 10px;
+            font-size: 16px;
+        }
+    </style>
 </head>
 <body>
     <h1>King-Police-Robber-Thief</h1>
@@ -12,33 +47,60 @@
         <button id="createRoom">Create Room</button>
         <button id="joinRoom">Join Room</button>
     </div>
+
     <div id="game" style="display: none;">
         <h2>Players</h2>
         <ul id="players"></ul>
         <h2>Scores</h2>
         <ul id="scores"></ul>
-        <h2>Roles</h2>
-        <ul id="roles"></ul>
-        <button id="guessButton" style="display: none;">Make Guess</button>
+        <h3 id="roleLabel"></h3>
     </div>
-    <script>
-        const socket = io("https://king-police-backend.onrender.com");
 
+    <div id="guess" style="display: none;">
+        <label for="robberGuess">Select who is the Robber:</label>
+        <select id="robberGuess" disabled>
+            <!-- Robber and Thief options will be populated dynamically -->
+        </select>
+        <button id="guessButton">Make Guess</button>
+    </div>
+
+    <div id="gameOver" style="display: none;">
+        <h2>Game Over!</h2>
+        <p id="winnerMessage"></p>
+        <button id="restartGame">Restart Game</button>
+    </div>
+
+    <script>
+        // Connect to the backend server via Socket.IO
+        const socket = io("http://127.0.0.1:5000");
+
+        // Create a room
         document.getElementById("createRoom").onclick = () => {
             const roomCode = document.getElementById("roomCode").value;
+            if (roomCode === "") {
+                alert("Please enter a room code.");
+                return;
+            }
             socket.emit("create_room", { room_code: roomCode });
         };
 
+        // Join an existing room
         document.getElementById("joinRoom").onclick = () => {
             const roomCode = document.getElementById("roomCode").value;
             const username = document.getElementById("username").value;
+            if (roomCode === "" || username === "") {
+                alert("Please enter both a room code and a username.");
+                return;
+            }
             socket.emit("join_room", { room_code: roomCode, username: username });
         };
 
+        // Display room creation success message
         socket.on("room_created", (data) => {
             alert(`Room ${data.room_code} created! Share with friends.`);
         });
 
+        // Display players in the room
         socket.on("player_joined", (data) => {
             const playerList = document.getElementById("players");
             playerList.innerHTML = "";
@@ -51,17 +113,65 @@
             document.getElementById("game").style.display = "block";
         });
 
+        // Show roles and start new turn
         socket.on("new_turn", (data) => {
             const roles = data.roles;
-            const roleList = document.getElementById("roles");
-            roleList.innerHTML = "";
+            const playersList = document.getElementById("players");
+            playersList.innerHTML = "";  // Clear current player list
+
+            // Display each player's name and role (only show King's role to everyone)
             Object.entries(roles).forEach(([player, role]) => {
                 const li = document.createElement("li");
-                li.textContent = `${player}: ${role}`;
-                roleList.appendChild(li);
+                // Display all players' names
+                if (role === "King") {
+                    li.textContent = `${player}: ${role}`;  // Show King's name and role
+                } else {
+                    li.textContent = `${player}: Hidden Role`;  // Hide other roles
+                }
+                playersList.appendChild(li);
             });
+
+            // Hide guess section for everyone except the Police
+            const username = document.getElementById("username").value;
+            document.getElementById("roleLabel").textContent = `Your Role: ${roles[username]}`; // Optionally display only for the user
+            document.getElementById("guess").style.display = "none"; // Hide guess section by default
+
+            if (roles[username] === "Police") {
+                // Show guess section for Police only
+                document.getElementById("guess").style.display = "block"; 
+
+                // Enable dropdown and populate it with Robber and Thief names
+                const robber = getPlayerByRole(roles, "Robber");
+                const thief = getPlayerByRole(roles, "Thief");
+
+                const selectElement = document.getElementById("robberGuess");
+                selectElement.disabled = false;
+                selectElement.innerHTML = "";  // Clear any previous options
+
+                const optionRobber = document.createElement("option");
+                optionRobber.value = robber;
+                optionRobber.textContent = robber;  // Option for the Robber
+                selectElement.appendChild(optionRobber);
+
+                const optionThief = document.createElement("option");
+                optionThief.value = thief;
+                optionThief.textContent = thief;  // Option for the Thief
+                selectElement.appendChild(optionThief);
+            }
+
+            // Reset guesses and button
+            document.getElementById("robberGuess").value = "";
+            document.getElementById("guessButton").onclick = () => {
+                const roomCode = document.getElementById("roomCode").value;
+                const robberGuess = document.getElementById("robberGuess").value;
+                
+                // Emitting the guess (Police guesses the Robber)
+                const policeGuess = { "Robber": robberGuess };
+                socket.emit("guess_roles", { room_code: roomCode, police_guess: policeGuess });
+            };
         });
 
+        // Update scores
         socket.on("update_scores", (data) => {
             const scores = data.scores;
             const scoreList = document.getElementById("scores");
@@ -73,11 +183,26 @@
             });
         });
 
+        // Game Over and Winner Announcement
         socket.on("game_over", (data) => {
-            alert(`Game Over! Winner: ${data.winner}`);
+            const winner = data.winner;
+            document.getElementById("winnerMessage").textContent = `Winner: ${winner}`;
             document.getElementById("game").style.display = "none";
-            document.getElementById("menu").style.display = "block";
+            document.getElementById("gameOver").style.display = "block";
         });
+
+        // Restart the game
+        document.getElementById("restartGame").onclick = () => {
+            const roomCode = document.getElementById("roomCode").value;
+            socket.emit("restart_game", { room_code: roomCode });
+            document.getElementById("gameOver").style.display = "none";
+            document.getElementById("game").style.display = "block";
+        };
+
+        // Helper function to find player by role
+        function getPlayerByRole(roles, roleName) {
+            return Object.keys(roles).find(player => roles[player] === roleName);
+        }
     </script>
 </body>
 </html>
